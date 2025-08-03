@@ -5,7 +5,10 @@ package main
 // It creates a window, handles events, and renders a rectangle
 
 // use purego-sdl3 from jupiterrider
-import "github.com/jupiterrider/purego-sdl3/sdl"
+import (
+	"github.com/jupiterrider/purego-sdl3/sdl"
+	"github.com/jupiterrider/purego-sdl3/ttf"
+)
 
 func main() {
 
@@ -15,6 +18,19 @@ func main() {
 	if !sdl.Init(sdl.InitVideo) {
 		panic(sdl.GetError())
 	}
+
+	// Initialize TTF
+	defer ttf.Quit()
+	if !ttf.Init() {
+		panic(sdl.GetError())
+	}
+
+	// Load font
+	font := ttf.OpenFont("assets/OpenDyslexic-Regular.ttf", 24)
+	if font == nil {
+		panic(sdl.GetError())
+	}
+	defer ttf.CloseFont(font)
 
 	// Create a window and renderer
 	// The window is resizable and has a title
@@ -26,6 +42,23 @@ func main() {
 	}
 	defer sdl.DestroyRenderer(renderer)
 	defer sdl.DestroyWindow(window)
+
+	// Create text texture
+	textSurface := ttf.RenderTextBlended(font, "Use arrow keys to move", 0, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	if textSurface == nil {
+		panic(sdl.GetError())
+	}
+	defer sdl.DestroySurface(textSurface)
+
+	textTexture := sdl.CreateTextureFromSurface(renderer, textSurface)
+	if textTexture == nil {
+		panic(sdl.GetError())
+	}
+	defer sdl.DestroyTexture(textTexture)
+
+	// Get text dimensions
+	var textW, textH float32
+	sdl.GetTextureSize(textTexture, &textW, &textH)
 
 	// SECTION : Application state
 
@@ -81,6 +114,10 @@ Outer:
 		// Set color and fill the rectangle
 		sdl.SetRenderDrawColor(renderer, 0, 0, 200, sdl.AlphaOpaque)
 		sdl.RenderFillRect(renderer, &rect)
+
+		// Draw text
+		textRect := sdl.FRect{X: 10, Y: 10, W: textW, H: textH}
+		sdl.RenderTexture(renderer, textTexture, nil, &textRect)
 
 		// Present the renderer
 		// This updates the window with the rendered content
