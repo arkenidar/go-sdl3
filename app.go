@@ -44,7 +44,7 @@ func main() {
 	defer sdl.DestroyWindow(window)
 
 	// Create text texture
-	textSurface := ttf.RenderTextBlended(font, "Use arrow keys to move", 0, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	textSurface := ttf.RenderTextBlended(font, "( move with arrow keys or mouse drag )", 0, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if textSurface == nil {
 		panic(sdl.GetError())
 	}
@@ -64,28 +64,17 @@ func main() {
 
 	x, y := float32(150), float32(150)
 
+	// Drag state variables
+	dragging := false
+	dragOffsetX, dragOffsetY := float32(0), float32(0)
+
 Outer:
-	// SECTION : Main loop
-
-	// Handle events and render
-	// Exit on Escape key or window close
-	// Arrow keys move the rectangle
 	for {
-
-		// SECTION : Event handling
-
-		// Poll for events and handle them
-		// This is where we check for user input
-		// and update the application state accordingly
 		var event sdl.Event
 		for sdl.PollEvent(&event) {
 			switch event.Type() {
-			// Handle quit event (window close)
 			case sdl.EventQuit:
 				break Outer
-			// Handle key down events
-			// This is where we check for keyboard input
-			// and update the rectangle position
 			case sdl.EventKeyDown:
 				switch event.Key().Scancode {
 				case sdl.ScancodeEscape:
@@ -99,28 +88,38 @@ Outer:
 				case sdl.ScancodeUp:
 					y -= 15
 				}
+			case sdl.EventMouseButtonDown:
+				mx := float32(event.Button().X)
+				my := float32(event.Button().Y)
+				// Check if mouse is inside the square
+				if mx >= x && mx <= x+100 && my >= y && my <= y+100 {
+					dragging = true
+					dragOffsetX = mx - x
+					dragOffsetY = my - y
+				}
+			case sdl.EventMouseButtonUp:
+				dragging = false
+			case sdl.EventMouseMotion:
+				if dragging {
+					mx := float32(event.Motion().X)
+					my := float32(event.Motion().Y)
+					x = mx - dragOffsetX
+					y = my - dragOffsetY
+				}
 			}
 		}
 
 		// SECTION : Rendering
-
-		// Clear the renderer
 		sdl.SetRenderDrawColor(renderer, 100, 150, 200, sdl.AlphaOpaque)
 		sdl.RenderClear(renderer)
 
-		// Draw rectangle
-		// Use FRect for floating-point coordinates
 		rect := sdl.FRect{X: x, Y: y, W: 100, H: 100}
-		// Set color and fill the rectangle
 		sdl.SetRenderDrawColor(renderer, 0, 0, 200, sdl.AlphaOpaque)
 		sdl.RenderFillRect(renderer, &rect)
 
-		// Draw text
 		textRect := sdl.FRect{X: 10, Y: 10, W: textW, H: textH}
 		sdl.RenderTexture(renderer, textTexture, nil, &textRect)
 
-		// Present the renderer
-		// This updates the window with the rendered content
 		sdl.RenderPresent(renderer)
 	}
 }
