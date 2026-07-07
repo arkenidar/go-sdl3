@@ -14,6 +14,7 @@ duplicate), then run from anywhere:
 """
 import ctypes as ct
 import os
+import sys
 
 # Resolve paths relative to this script's own location, not the caller's
 # cwd, so `python3 examples/python-use/demo.py` works from the repo root too.
@@ -92,6 +93,11 @@ gui.gui_button_new.restype = ct.c_int32
 
 gui.gui_button_was_clicked.argtypes = [ct.c_uint64, ct.POINTER(ct.c_int32)]
 gui.gui_button_was_clicked.restype = ct.c_int32
+
+GuiClickCallback = ct.CFUNCTYPE(None, ct.c_uint64, ct.c_void_p)
+
+gui.gui_button_set_onclick.argtypes = [ct.c_uint64, GuiClickCallback, ct.c_void_p]
+gui.gui_button_set_onclick.restype = ct.c_int32
 
 gui.gui_checkbox_new.argtypes = [
     ct.c_uint64, ct.c_uint64, ct.c_float, ct.c_float, ct.c_char_p, ct.c_int32, ct.POINTER(ct.c_uint64),
@@ -187,6 +193,32 @@ def main():
     button = ct.c_uint64()
     check(gui.gui_button_new(renderer, font, 0, 0, 0, 0, b"Click me", ct.byref(button)), "gui_button_new")
 
+    # Phase 3: native callback (as opposed to the poll-based checkbox/
+    # textinput below). CFUNCTYPE turns this Python closure into a real C
+    # function pointer Go can call directly. on_button_click MUST stay
+    # referenced (assigned to a variable, never a throwaway expression) for
+    # as long as the button exists -- ctypes does not know the C side holds
+    # this pointer, so letting Python garbage-collect it would be a
+    # use-after-free from Go's perspective.
+    #
+    # The body is wrapped in try/except: a callback invoked from C should
+    # never let an exception escape back across the C boundary. ctypes is
+    # forgiving here (it reports the exception via sys.unraisablehook and
+    # returns a default value rather than crashing, unlike LuaJIT's FFI,
+    # which aborts the whole process) but swallowing it explicitly keeps
+    # behavior consistent and avoids relying on that leniency.
+    def _on_button_click(handle, userdata):
+        try:
+            nonlocal clicks
+            clicks += 1
+            gui.gui_label_set_text(label, f"Clicks: {clicks}".encode())
+            print("button clicked (native callback), total:", clicks)
+        except Exception as e:
+            print("onButtonClick error:", e, file=sys.stderr)
+
+    on_button_click = GuiClickCallback(_on_button_click)
+    check(gui.gui_button_set_onclick(button, on_button_click, None), "gui_button_set_onclick")
+
     checkbox = ct.c_uint64()
     check(
         gui.gui_checkbox_new(renderer, font, 0, 0, b"Enable feature", 0, ct.byref(checkbox)),
@@ -263,11 +295,10 @@ def main():
             check(gui.gui_widget_update(table, ct.byref(handled)))
             check(gui.gui_widget_update(textarea, ct.byref(handled)))
 
-        check(gui.gui_button_was_clicked(button, ct.byref(flag)))
-        if flag.value == 1:
-            clicks += 1
-            check(gui.gui_label_set_text(label, f"Clicks: {clicks}".encode()))
-            print("button clicked, total:", clicks)
+        # Button clicks are handled by the native callback registered above
+        # (fires during gui_widget_update, inside the dispatch loop).
+        # Checkbox and TextInput below still use the poll-based model, to
+        # keep both interaction styles demonstrated side by side.
 
         check(gui.gui_checkbox_was_toggled(checkbox, ct.byref(flag)))
         if flag.value == 1:

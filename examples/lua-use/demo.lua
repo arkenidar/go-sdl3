@@ -20,6 +20,7 @@ local scriptDir = arg[0]:match("(.*/)") or "./"
 ffi.cdef[[
 typedef struct { int32_t type; float mx, my; float wheel_x, wheel_y; int32_t scancode; char text[32]; } GuiEvent;
 typedef struct { float x, y, w, h; } GuiRect;
+typedef void (*GuiClickCallback)(uint64_t handle, void* userdata);
 
 int32_t gui_abi_version(void);
 int32_t gui_delay_ms(uint32_t ms);
@@ -40,6 +41,7 @@ int32_t gui_label_set_text(uint64_t handle, const char* text);
 
 int32_t gui_button_new(uint64_t renderer, uint64_t font, float x, float y, float w, float h, const char* text, uint64_t* out);
 int32_t gui_button_was_clicked(uint64_t handle, int32_t* out);
+int32_t gui_button_set_onclick(uint64_t handle, GuiClickCallback cb, void* userdata);
 
 int32_t gui_checkbox_new(uint64_t renderer, uint64_t font, float x, float y, const char* text, int32_t checked, uint64_t* out);
 int32_t gui_checkbox_get_checked(uint64_t handle, int32_t* out);
@@ -105,6 +107,30 @@ label = label[0]
 local button = ffi.new("uint64_t[1]")
 check(gui.gui_button_new(renderer, font, 0, 0, 0, 0, "Click me", button), "gui_button_new")
 button = button[0]
+
+-- Phase 3: native callback (as opposed to the poll-based checkbox/textinput
+-- below). ffi.cast turns this Lua closure into a real C function pointer
+-- Go can call directly. It MUST be kept alive (assigned to a variable,
+-- never re-cast/discarded) for as long as the button exists -- LuaJIT does
+-- not know the C side is holding this pointer, so a GC'd callback here
+-- would be a use-after-free from Go's perspective. Call :free() once done
+-- (after the button is destroyed) to release the callback trampoline slot.
+--
+-- Deliberately minimal: just bump a plain Lua counter, no FFI calls at
+-- all. LuaJIT's FFI callback mechanism can't tolerate calling back into
+-- another cdata C function (like gui.gui_label_set_text) from *within* a
+-- callback that's itself already a C-into-Lua call -- doing so aborts the
+-- whole process with "PANIC: unprotected error in call to Lua API (bad
+-- callback)", which pcall cannot catch (the panic happens in the callback
+-- trampoline itself, not from an ordinary Lua error). ctypes/CPython does
+-- not have this restriction (see examples/python-use/demo.py), so this is
+-- a LuaJIT-specific workaround: real work (gui_label_set_text, print) is
+-- deferred to the main loop below, safely outside the callback.
+local buttonClickCount = 0
+local onButtonClick = ffi.cast("GuiClickCallback", function(handle, userdata)
+    buttonClickCount = buttonClickCount + 1
+end)
+check(gui.gui_button_set_onclick(button, onButtonClick, nil), "gui_button_set_onclick")
 
 local checkbox = ffi.new("uint64_t[1]")
 check(gui.gui_checkbox_new(renderer, font, 0, 0, "Enable feature", 0, checkbox), "gui_checkbox_new")
@@ -179,11 +205,16 @@ while running do
         check(gui.gui_widget_update(textarea, handled))
     end
 
-    check(gui.gui_button_was_clicked(button, flag))
-    if flag[0] == 1 then
-        clicks = clicks + 1
+    -- Button clicks are detected by the native callback above (it just
+    -- bumps buttonClickCount), but the actual FFI work -- updating the
+    -- label, printing -- happens here in the main loop, safely outside the
+    -- callback. Checkbox and TextInput below still use the poll-based
+    -- model, to keep both interaction styles demonstrated side by side.
+    if buttonClickCount > 0 then
+        clicks = clicks + buttonClickCount
+        buttonClickCount = 0
         check(gui.gui_label_set_text(label, "Clicks: " .. clicks))
-        print("button clicked, total:", clicks)
+        print("button clicked (native callback), total:", clicks)
     end
 
     check(gui.gui_checkbox_was_toggled(checkbox, flag))
@@ -211,5 +242,6 @@ end
 gui.gui_widget_destroy(stack)
 gui.gui_widget_destroy(table_)
 gui.gui_widget_destroy(textarea)
+onButtonClick:free() -- release the callback trampoline slot, after the button (its only user) is gone
 check(gui.gui_quit())
 print("done, total clicks:", clicks)

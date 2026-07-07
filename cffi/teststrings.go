@@ -33,6 +33,14 @@ func testButtonNew(renderer, font uint64, x, y, w, h float32, text string) uint6
 	return out
 }
 
+func testLabelNew(renderer, font uint64, x, y float32, text string) uint64 {
+	c := C.CString(text)
+	defer C.free(unsafe.Pointer(c))
+	var out uint64
+	gui_label_new(renderer, font, x, y, c, &out)
+	return out
+}
+
 func goStringFromC(s *C.char) string {
 	defer C.free(unsafe.Pointer(s))
 	return C.GoString(s)

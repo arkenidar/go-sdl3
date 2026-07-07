@@ -113,6 +113,7 @@ func gui_button_new(renderer, font uint64, x, y, w, h float32, text *C.char, out
 		var handle uint64
 		btn := widgets.NewButton(x, y, w, h, C.GoString(text), f, rend, func() {
 			buttonClicks[handle] = true
+			invokeButtonCallback(handle)
 		})
 		handle = handles.put(btn)
 		if out != nil {
@@ -224,6 +225,7 @@ func gui_checkbox_new(renderer, font uint64, x, y float32, text *C.char, checked
 		var handle uint64
 		cb := widgets.NewCheckbox(x, y, C.GoString(text), checked != 0, f, rend, func(newChecked bool) {
 			checkboxToggles[handle] = true
+			invokeCheckboxCallback(handle, newChecked)
 		})
 		handle = handles.put(cb)
 		if out != nil {
@@ -294,6 +296,7 @@ func gui_textinput_new(renderer, font, window uint64, x, y, w, h float32, out *u
 		ti := widgets.NewTextInput(x, y, w, h, f, rend, win)
 		ti.OnSubmit = func(value string) {
 			textInputSubmits[handle] = true
+			invokeSubmitCallback(handle, value)
 		}
 		handle = handles.put(ti)
 		if out != nil {
@@ -450,6 +453,7 @@ func gui_widget_destroy(handle uint64) int32 {
 		delete(buttonClicks, handle)
 		delete(checkboxToggles, handle)
 		delete(textInputSubmits, handle)
+		deleteCallbacks(handle)
 		return nil
 	})
 }
