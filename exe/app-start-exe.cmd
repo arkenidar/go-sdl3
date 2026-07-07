@@ -1,4 +1,4 @@
-@rem env PATH="$PATH:$(pwd)/exe" go run app.go
+@rem env PATH="$PATH:$(pwd)/exe" go run ./cmd/counter-demo
 
 @set PATH=%PATH%;%CD%
 @cd ..
