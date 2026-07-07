@@ -1,16 +1,10 @@
 # SDL3 Go Application
 
-A simple SDL3 application written in Go that demonstrates:
-
-- Window creation and management
-- Event handling (keyboard input)
-- 2D rendering with rectangles
-- Basic game loop structure
-
-## Controls
-
-- Arrow keys: Move the blue rectangle
-- Escape key: Exit application
+A collection of small desktop apps written in Go using SDL3, sharing a
+common `internal/` toolkit (see `cmd/` for the list). For the full catalog —
+screenshots, controls, and how to run each one (including a Windows-friendly
+path with no Go install needed) — see
+**[docs/index.html](docs/index.html)**.
 
 ## Requirements
 

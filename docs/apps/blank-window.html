@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blank Window — Go + SDL3 examples</title>
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  body {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    background: #ffffff;
+    color: #1a1a1a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: #1a1a1e;
+      color: #e8e8ea;
+    }
+    a { color: #7ab8ff; }
+    code, pre { background: #2a2a30; }
+    img { background: #ffffff10; }
+  }
+  h1, h2, h3 { line-height: 1.25; }
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 6px;
+    margin: 0.75rem 0;
+  }
+  code {
+    background: #f0f0f2;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+  pre {
+    background: #f0f0f2;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; }
+  @media (max-width: 600px) {
+    body { padding: 1rem 0.75rem 3rem; }
+  }
+</style>
+</head>
+<body>
+<p><a href="../index.html">← Back to catalog</a></p>
+<h1>Blank Window</h1>
+<p><img alt="Blank Window" src="../screenshots/blank-window.png" /></p>
+<p>The bare-minimum starting point for a new app — opens a window, clears it
+every frame, and quits on Escape. Nothing else.</p>
+<p>This is meant to be copied: duplicate the <code>cmd/blank-window</code> directory,
+rename the package/binary, and build your own example from there.</p>
+<h2>Controls</h2>
+<ul>
+<li>Escape or the window's close button: quit</li>
+</ul>
+<h2>Run it</h2>
+<ul>
+<li>Go installed: <code>go run ./cmd/blank-window</code> (from the repo root)</li>
+<li>Windows, no Go needed: double-click <code>exe/blank-window-start-exe.cmd</code></li>
+</ul>
+</body>
+</html>

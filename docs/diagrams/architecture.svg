@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 320" font-family="monospace" font-size="14">
+  <style>
+    .box { fill: #3a3a42; stroke: #8a8a95; stroke-width: 1.5; }
+    .shared { fill: #2a4a6a; stroke: #6aa0d8; stroke-width: 1.5; }
+    .label { fill: #f0f0f0; text-anchor: middle; dominant-baseline: middle; }
+    .edge { stroke: #8a8a95; stroke-width: 1; fill: none; }
+    .caption { fill: #a0a0a8; text-anchor: middle; }
+    @media (prefers-color-scheme: light) {
+      svg { background: #ffffff; }
+      .box { fill: #e8e8ec; stroke: #888895; }
+      .shared { fill: #d6e6f7; stroke: #4a7ab0; }
+      .label { fill: #202024; }
+      .edge { stroke: #888895; }
+      .caption { fill: #55555c; }
+    }
+  </style>
+
+  <rect x="0" y="0" width="920" height="320" fill="none"/>
+
+  <!-- cmd/* app boxes -->
+  <g>
+    <rect class="box" x="10"  y="20" width="120" height="40" rx="6"/>
+    <text class="label" x="70" y="40">blank-window</text>
+
+    <rect class="box" x="140" y="20" width="120" height="40" rx="6"/>
+    <text class="label" x="200" y="40">counter-demo</text>
+
+    <rect class="box" x="270" y="20" width="120" height="40" rx="6"/>
+    <text class="label" x="330" y="40">bouncing-balls</text>
+
+    <rect class="box" x="400" y="20" width="120" height="40" rx="6"/>
+    <text class="label" x="460" y="40">form-demo</text>
+
+    <rect class="box" x="530" y="20" width="120" height="40" rx="6"/>
+    <text class="label" x="590" y="40">text-playground</text>
+
+    <rect class="box" x="660" y="20" width="120" height="40" rx="6"/>
+    <text class="label" x="720" y="40">crud-app</text>
+
+    <rect class="box" x="790" y="20" width="120" height="40" rx="6"/>
+    <text class="label" x="850" y="40">launcher</text>
+  </g>
+  <text class="caption" x="460" y="10" font-size="12">cmd/&lt;app&gt; — each its own package main</text>
+
+  <!-- converging edges into a horizontal bus -->
+  <g class="edge">
+    <line x1="70"  y1="60" x2="70"  y2="120"/>
+    <line x1="200" y1="60" x2="200" y2="120"/>
+    <line x1="330" y1="60" x2="330" y2="120"/>
+    <line x1="460" y1="60" x2="460" y2="120"/>
+    <line x1="590" y1="60" x2="590" y2="120"/>
+    <line x1="720" y1="60" x2="720" y2="120"/>
+    <line x1="850" y1="60" x2="850" y2="120"/>
+    <line x1="70" y1="120" x2="850" y2="120"/>
+    <line x1="200" y1="120" x2="200" y2="140"/>
+    <line x1="460" y1="120" x2="460" y2="140"/>
+    <line x1="720" y1="120" x2="720" y2="140"/>
+  </g>
+
+  <!-- shared internal/* packages -->
+  <g>
+    <rect class="shared" x="60"  y="140" width="280" height="60" rx="8"/>
+    <text class="label" x="200" y="164">internal/sdlapp</text>
+    <text class="caption" x="200" y="184" font-size="11">Bootstrap + Run (SDL/TTF init, window, loop)</text>
+
+    <rect class="shared" x="360" y="140" width="200" height="60" rx="8"/>
+    <text class="label" x="460" y="164">internal/widgets</text>
+    <text class="caption" x="460" y="184" font-size="11">Button/Label/Checkbox/TextInput/</text>
+    <text class="caption" x="460" y="196" font-size="11">TextArea/Layout/VStack/Table</text>
+
+    <rect class="shared" x="600" y="140" width="240" height="60" rx="8"/>
+    <text class="label" x="720" y="164">internal/textutil</text>
+    <text class="caption" x="720" y="184" font-size="11">WrapText + RenderBottomText</text>
+  </g>
+
+  <text class="caption" x="460" y="240" font-size="12">
+    Every app calls internal/sdlapp; most use internal/widgets and/or internal/textutil for UI and text.
+  </text>
+  <text class="caption" x="460" y="260" font-size="12">
+    New example? Copy cmd/blank-window as a starting point.
+  </text>
+</svg>

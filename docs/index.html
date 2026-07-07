@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Go + SDL3 example apps</title>
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  body {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    background: #ffffff;
+    color: #1a1a1a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: #1a1a1e;
+      color: #e8e8ea;
+    }
+    a { color: #7ab8ff; }
+    code, pre { background: #2a2a30; }
+    img { background: #ffffff10; }
+  }
+  h1, h2, h3 { line-height: 1.25; }
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 6px;
+    margin: 0.75rem 0;
+  }
+  code {
+    background: #f0f0f2;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+  pre {
+    background: #f0f0f2;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; }
+  @media (max-width: 600px) {
+    body { padding: 1rem 0.75rem 3rem; }
+  }
+</style>
+</head>
+<body>
+<h1>Go + SDL3 example apps</h1>
+<p>This repo is a small collection of desktop apps written in Go, using
+<a href="https://www.libsdl.org/">SDL3</a> for the window, drawing, and keyboard/mouse
+input. In plain terms: each app opens a window, draws some shapes/text into
+it, and reacts to clicks and key presses — no browser, no HTML, just a
+regular native program.</p>
+<p>The Go bindings come from
+<a href="https://github.com/jupiterrider/purego-sdl3">purego-sdl3</a>, which talks to
+the SDL3 library directly without needing a C compiler (via
+<a href="https://github.com/ebitengine/purego">purego</a>).</p>
+<p>Every app below shares the same small toolkit, kept in this repo under
+<code>internal/</code>, so none of them start from scratch. See
+<a href="#project-layout">Project layout</a> below for how that fits together.</p>
+<h2>Running an app</h2>
+<p>Two ways to run any app in this list, whichever suits you:</p>
+<ul>
+<li><strong>Have Go installed?</strong> From the repo root: <code>go run ./cmd/&lt;name&gt;</code>
+  (e.g. <code>go run ./cmd/blank-window</code>).</li>
+<li><strong>Just want to double-click and go, no Go install needed (Windows)?</strong>
+  Open the <code>exe/</code> folder and double-click <code>&lt;name&gt;-start-exe.cmd</code>
+  (e.g. <code>blank-window-start-exe.cmd</code>). It runs the matching <code>.exe</code> with the
+  SDL3 DLLs already sitting next to it in that folder.</li>
+</ul>
+<p>There's also a <strong>Launcher</strong> app that lists every other app as a button — run
+that once and click your way to any of the others instead of remembering
+names. See its own page below.</p>
+<h2>The apps</h2>
+<p>Each app has its own page with a screenshot, controls, and how to run it.</p>
+<ul>
+<li><a href="apps/counter-demo.html">Counter Demo</a> — draggable rectangle, counter
+  buttons, modal alert dialog.</li>
+<li><a href="apps/blank-window.html">Blank Window</a> — the bare-minimum starter
+  template for a new example.</li>
+<li><a href="apps/bouncing-balls.html">Bouncing Balls</a> — animated circles bouncing
+  off the window edges.</li>
+<li><a href="apps/form-demo.html">Form Demo</a> — checkboxes, a live status line, and a
+  Reset button.</li>
+<li><a href="apps/text-playground.html">Text Playground</a> — a scrollable, word-wrap
+  toggleable multi-line text box.</li>
+<li><a href="apps/crud-app.html">CRUD App</a> — a to-do list with add/toggle/delete,
+  saved to a JSON file.</li>
+<li><a href="apps/launcher.html">Launcher</a> — one button per app above, click to open.</li>
+</ul>
+<h2>Project layout</h2>
+<p><img alt="Architecture" src="diagrams/architecture.svg" /></p>
+<ul>
+<li><code>internal/sdlapp</code> — <code>Bootstrap</code>/<code>Run</code>: opens the SDL/TTF window+renderer
+  and drives the standard poll-events-then-render loop. Every app calls this.</li>
+<li><code>internal/widgets</code> — the small UI toolkit: <code>Button</code>, <code>Label</code>, <code>Checkbox</code>,
+  <code>TextInput</code>, <code>TextArea</code>, and three ways to arrange them —
+  <code>Layout</code> (a horizontal row), <code>VStack</code> (a vertical column), and <code>Table</code> (a
+  2D grid that aligns column widths and row heights automatically).</li>
+<li><code>internal/textutil</code> — word-wrapping and centered-text rendering helpers.</li>
+<li><code>cmd/blank-window</code> — the starter template. Copy this directory to begin a
+  new example.</li>
+</ul>
+<h3>How the widget/event system works</h3>
+<ul>
+<li><strong>Layout is chosen up front, not per frame.</strong> <code>Layout</code>/<code>VStack</code> position
+  each widget as soon as it's added. <code>Table</code> is two-phase instead — add
+  every row first, then call <code>Layout()</code> once — because a column's width
+  depends on the widest widget in <em>every</em> row, not just the one being added.
+  Since positions are fixed at construction (not re-flowed every frame),
+  anything that sizes a window from its content has to use real values —
+  two bugs this session came from measuring a placeholder (an empty status
+  label, an unstretched table column) instead of the real content.</li>
+<li><strong>Events are dispatched with first-hit-wins, no capture/bubbling.</strong> Every
+  widget implements <code>Update(event, mx, my) bool</code>, returning <code>true</code> if it
+  handled the event. A container (<code>Layout</code>/<code>VStack</code>/<code>Table</code>) just tries its
+  children in order and stops at the first one that returns <code>true</code>. There's
+  no focus stack beyond what a widget tracks itself — <code>TextInput</code>/<code>TextArea</code>
+  keep their own <code>Focused</code> flag and start/stop OS text input on change.</li>
+</ul>
+<h2>A note on the Windows DLLs in <code>exe/</code></h2>
+<p>The <code>.dll</code> files in <code>exe/</code> are loaded by name at runtime (via <code>purego</code>, not
+a static link), so an <code>.exe</code> built today isn't locked to today's exact DLL
+build. If <code>exe/*.dll</code> ever looks stale or mismatched, dropping in newer
+SDL3/SDL3_ttf builds should keep every existing <code>.exe</code> working without a
+rebuild.</p>
+</body>
+</html>
