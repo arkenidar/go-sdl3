@@ -45,12 +45,14 @@ func (t *TextInput) Focus() {
 	sdl.StartTextInput(t.window)
 }
 
+// Blur clears focus but deliberately does not call SDL_StopTextInput: the
+// window's text-input state is shared by every focusable widget on it, and
+// each widget already gates character insertion on its own Focused flag, so
+// leaving text input enabled is harmless. Calling StopTextInput here would
+// race with another widget's Focus (called for the same click event) and
+// could disable text input for whichever one just gained it.
 func (t *TextInput) Blur() {
-	if !t.Focused {
-		return
-	}
 	t.Focused = false
-	sdl.StopTextInput(t.window)
 }
 
 func (t *TextInput) Update(event sdl.Event, mx, my float32) bool {

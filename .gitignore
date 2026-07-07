@@ -1,2 +1,12 @@
 # Runtime data written by cmd/crud-app next to whichever binary runs it.
 crud-app-data.json
+
+# Build output of `go build -buildmode=c-shared -o cffi/libgui.so ./cffi`,
+# shared by every FFI example under examples/ (lua-use, python-use).
+cffi/libgui.so
+cffi/libgui.h
+cffi/libgui.dylib
+cffi/libgui.dll
+
+# Python bytecode cache from running examples/python-use/demo.py.
+__pycache__/
