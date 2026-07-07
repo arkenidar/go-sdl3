@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/jupiterrider/purego-sdl3/sdl"
 	"github.com/jupiterrider/purego-sdl3/ttf"
@@ -127,14 +128,23 @@ func maxFloat(a, b float32) float32 {
 // launch starts entry's sibling binary as a detached, non-blocking child
 // process so the launcher itself stays open and usable.
 func (app *App) launch(e entry) {
-	path := filepath.Join(app.exeDir, e.Binary)
+	// On Windows the sibling binaries live next to launcher.exe under exe/
+	// as name.exe; on Linux they're bare names under bin/. Same exeDir, just
+	// a platform-specific extension.
+	binary := e.Binary
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
+	}
+	path := filepath.Join(app.exeDir, binary)
 	if _, err := os.Stat(path); err != nil {
-		app.statusLabel.UpdateText(fmt.Sprintf("Can't find %s: %v", e.Binary, err))
+		app.statusLabel.UpdateText(fmt.Sprintf("Can't find %s: %v", binary, err))
 		return
 	}
 
 	cmd := exec.Command(path)
 	cmd.Dir = app.repoRoot
+	// LD_LIBRARY_PATH points the Linux dynamic loader at lib/; Windows
+	// ignores it and instead finds the DLLs alongside the child exe in exe/.
 	cmd.Env = append(os.Environ(), "LD_LIBRARY_PATH="+filepath.Join(app.repoRoot, "lib"))
 	if err := cmd.Start(); err != nil {
 		app.statusLabel.UpdateText(fmt.Sprintf("Failed to launch %s: %v", e.Binary, err))
