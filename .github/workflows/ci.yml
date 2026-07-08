@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    # ubuntu-latest (24.04) has no SDL3 apt packages; libsdl3-dev exists
+    # from Ubuntu 25.10 onward, so use the 26.04 image.
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      # SDL3 is loaded at runtime via purego (dlopen), not linked at build
+      # time, so these dev packages just need to be present on the system
+      # for the .so to be found -- no cgo linkage to SDL3 itself. cgo IS
+      # used by ./cffi (for -buildmode=c-shared), which is why gcc is
+      # needed too (already present on ubuntu-latest runners).
+      - name: Install SDL3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl3-dev libsdl3-ttf-dev
+
+      - name: Build everything
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (headless)
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: go test ./...
+
+      - name: Build libgui.so
+        run: ./cffi/build.sh
+
+      # Smoke-test the FFI demos headlessly: they loop until a quit event,
+      # which never arrives under the dummy driver, so `timeout` killing
+      # them (exit 124) after a couple seconds without any error output is
+      # the expected/passing outcome here, not a failure.
+      - name: Smoke-test lua-use demo
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          sudo apt-get install -y luajit
+          timeout 3 luajit examples/lua-use/demo.lua || [ $? -eq 124 ]
+
+      - name: Smoke-test python-use demo
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          timeout 3 python3 examples/python-use/demo.py || [ $? -eq 124 ]
+
+      - name: Smoke-test go-use demo
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          go build -o /tmp/go-use ./examples/go-use
+          cd examples/go-use && timeout 3 /tmp/go-use || [ $? -eq 124 ]
+
+  # macOS isn't covered by automated CI yet: SDL3 Homebrew formula naming
+  # hasn't been verified here. To build cffi/libgui locally:
+  #   brew install sdl3 sdl3_ttf && go build -buildmode=c-shared -o cffi/libgui.dylib ./cffi
+
+  windows:
+    runs-on: windows-latest
+    # NOTE: unverified against a real run on actual GitHub infrastructure.
+    steps:
+      - uses: actions/checkout@v4
+
+      # Go comes from the official setup-go action (not MSYS2's go
+      # package), matching a MSYS2/MinGW64 dev setup where Go itself is
+      # installed via its own installer/toolchain and only the C
+      # dependencies (gcc, SDL3) come from pacman.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-sdl3
+            mingw-w64-x86_64-sdl3-ttf
+
+      # msys2/setup-msys2 steps normally run inside its own bash (`shell:
+      # msys2 {0}`); everything else in this job runs in the default pwsh,
+      # so gcc.exe needs to be added to the ordinary Windows PATH here.
+      - name: Add MinGW64 toolchain to PATH
+        run: echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify toolchain
+        run: |
+          go version
+          gcc --version
+
+      - name: Build everything
+        env:
+          CGO_ENABLED: "1"
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (headless)
+        env:
+          CGO_ENABLED: "1"
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: go test ./...
+
+      - name: Build libgui.dll
+        env:
+          CGO_ENABLED: "1"
+        run: go build -buildmode=c-shared -o cffi/libgui.dll ./cffi
