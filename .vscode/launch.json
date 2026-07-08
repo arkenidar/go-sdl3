@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "[msw] Launch Program",
+      "name": "[msw] Launch counter-demo",
       "type": "go",
       "request": "launch",
       "mode": "debug",
@@ -13,7 +13,7 @@
       }
     },
     {
-      "name": "[gnu] Launch Program",
+      "name": "[gnu] Launch counter-demo",
       "type": "go",
       "request": "launch",
       "mode": "debug",
@@ -21,6 +21,17 @@
       "cwd": "${workspaceFolder}",
       "env": {
         "LD_LIBRARY_PATH": "${workspaceFolder}/lib"
+      }
+    },
+    {
+      "name": "[msw] Launch blank-window",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/blank-window",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PATH": "${env:PATH};${workspaceFolder}/exe"
       }
     },
     {
@@ -35,6 +46,17 @@
       }
     },
     {
+      "name": "[msw] Launch bouncing-balls",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/bouncing-balls",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PATH": "${env:PATH};${workspaceFolder}/exe"
+      }
+    },
+    {
       "name": "[gnu] Launch bouncing-balls",
       "type": "go",
       "request": "launch",
@@ -43,6 +65,17 @@
       "cwd": "${workspaceFolder}",
       "env": {
         "LD_LIBRARY_PATH": "${workspaceFolder}/lib"
+      }
+    },
+    {
+      "name": "[msw] Launch form-demo",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/form-demo",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PATH": "${env:PATH};${workspaceFolder}/exe"
       }
     },
     {
@@ -57,6 +90,17 @@
       }
     },
     {
+      "name": "[msw] Launch text-playground",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/text-playground",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PATH": "${env:PATH};${workspaceFolder}/exe"
+      }
+    },
+    {
       "name": "[gnu] Launch text-playground",
       "type": "go",
       "request": "launch",
@@ -65,6 +109,17 @@
       "cwd": "${workspaceFolder}",
       "env": {
         "LD_LIBRARY_PATH": "${workspaceFolder}/lib"
+      }
+    },
+    {
+      "name": "[msw] Launch crud-app",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/crud-app",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PATH": "${env:PATH};${workspaceFolder}/exe"
       }
     },
     {
