@@ -144,6 +144,9 @@ func (app *App) handleEvents() bool {
 		if event.Type() == sdl.EventMouseButtonDown || event.Type() == sdl.EventMouseButtonUp {
 			mx = float32(event.Button().X)
 			my = float32(event.Button().Y)
+		} else if event.Type() == sdl.EventMouseMotion {
+			mx = float32(event.Motion().X)
+			my = float32(event.Motion().Y)
 		}
 
 		switch event.Type() {
@@ -173,7 +176,10 @@ func (app *App) handleEvents() bool {
 					break
 				}
 			}
+		case sdl.EventMouseMotion:
+			app.input.Update(event, mx, my)
 		case sdl.EventMouseButtonUp:
+			app.input.Update(event, mx, my)
 			for _, r := range app.rows {
 				r.delete.Update(event, mx, my)
 			}

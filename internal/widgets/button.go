@@ -17,22 +17,12 @@ type Button struct {
 // NewButton creates a Button labeled with text. Pass w<=0 or h<=0 to
 // auto-size the button to fit its rendered text plus padding.
 func NewButton(x, y, w, h float32, text string, font *ttf.Font, renderer *sdl.Renderer, onClick func()) *Button {
-	// Create button text texture
-	surface := ttf.RenderTextBlended(font, text, 0, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if surface == nil {
-		panic(sdl.GetError())
-	}
-	defer sdl.DestroySurface(surface)
-
-	texture := sdl.CreateTextureFromSurface(renderer, surface)
+	texture, textW, textH := makeTextTexture(renderer, font, text, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if texture == nil {
 		panic(sdl.GetError())
 	}
 
 	// Auto-size button based on text if width/height are 0
-	var textW, textH float32
-	sdl.GetTextureSize(texture, &textW, &textH)
-
 	if w <= 0 {
 		w = textW + 20 // Add padding
 	}

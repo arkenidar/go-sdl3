@@ -1,6 +1,8 @@
 package widgets
 
 import (
+	"strings"
+
 	"github.com/jupiterrider/purego-sdl3/sdl"
 	"github.com/jupiterrider/purego-sdl3/ttf"
 
@@ -17,6 +19,9 @@ type TextArea struct {
 	Focused  bool
 
 	cursorRow, cursorCol int
+	selAnchor            textPos // selection anchor; meaningful when hasSel
+	hasSel               bool
+	selecting            bool // a mouse-drag selection is in progress
 	scrollX, scrollY     float32
 
 	// contentHeight/maxLineWidth are recomputed every Render call and used
@@ -121,6 +126,11 @@ func (t *TextArea) Update(event sdl.Event, mx, my float32) bool {
 		in := t.inside(mx, my)
 		if in {
 			t.Focus()
+			pos := t.posForPoint(mx, my)
+			t.cursorRow, t.cursorCol = pos.row, pos.col
+			t.selAnchor = pos
+			t.hasSel = false
+			t.selecting = true
 		} else if t.Focused {
 			t.Blur()
 		}
@@ -136,12 +146,19 @@ func (t *TextArea) Update(event sdl.Event, mx, my float32) bool {
 			t.scrollHToPointer(mx, track, thumb)
 			return true
 		}
+		if t.selecting {
+			pos := t.posForPoint(mx, my)
+			t.cursorRow, t.cursorCol = pos.row, pos.col
+			t.hasSel = pos != t.selAnchor
+			return true
+		}
 		return false
 	case sdl.EventMouseButtonUp:
-		wasDragging := t.draggingV || t.draggingH
+		wasActive := t.draggingV || t.draggingH || t.selecting
 		t.draggingV = false
 		t.draggingH = false
-		return wasDragging
+		t.selecting = false
+		return wasActive
 	case sdl.EventMouseWheel:
 		if !t.inside(mx, my) {
 			return false
@@ -165,7 +182,29 @@ func (t *TextArea) Update(event sdl.Event, mx, my float32) bool {
 		if !t.Focused {
 			return false
 		}
-		return t.handleKey(event.Key().Scancode)
+		key := event.Key()
+		if isCopyShortcut(key) || isCutShortcut(key) {
+			if t.hasSel {
+				a, b := t.clampPos(t.selAnchor), t.clampPos(textPos{t.cursorRow, t.cursorCol})
+				clipboardWrite(extractRangeLines(t.Lines, a, b))
+				if isCutShortcut(key) {
+					t.deleteSelection()
+				}
+			}
+			return true
+		}
+		if isPasteShortcut(key) {
+			t.insertAtCursor(clipboardRead())
+			return true
+		}
+		if isSelectAllShortcut(key) {
+			t.selAnchor = textPos{0, 0}
+			t.cursorRow = len(t.Lines) - 1
+			t.cursorCol = len(t.Lines[t.cursorRow])
+			t.hasSel = t.selAnchor != (textPos{t.cursorRow, t.cursorCol})
+			return true
+		}
+		return t.handleKey(key)
 	}
 	return false
 }
@@ -195,20 +234,73 @@ func (t *TextArea) scrollHToPointer(mx float32, track, thumb sdl.FRect) {
 	t.scrollX = clamp((thumbLeft-track.X)/span*maxScroll, 0, maxScroll)
 }
 
-func (t *TextArea) handleKey(scancode sdl.Scancode) bool {
+func (t *TextArea) handleKey(key sdl.KeyboardEvent) bool {
+	scancode := key.Scancode
+	shift := key.Mod&sdl.KeymodShift != 0
+	move := isMovementKey(scancode)
+
+	if t.hasSel {
+		switch {
+		case scancode == sdl.ScancodeBackspace || scancode == sdl.ScancodeDelete:
+			t.deleteSelection()
+			return true
+		case scancode == sdl.ScancodeReturn:
+			t.deleteSelection() // Return replaces the selection with a line break.
+		case move && !shift:
+			// Unshifted Left/Right collapse the selection to one end
+			// instead of moving the caret a further step.
+			lo, hi := orderPos(t.selAnchor, textPos{t.cursorRow, t.cursorCol})
+			t.hasSel = false
+			if scancode == sdl.ScancodeLeft {
+				t.cursorRow, t.cursorCol = lo.row, lo.col
+				return true
+			}
+			if scancode == sdl.ScancodeRight {
+				t.cursorRow, t.cursorCol = hi.row, hi.col
+				return true
+			}
+			// Home/End/Up/Down fall through and move normally.
+		}
+	}
+	if move && shift && !t.hasSel {
+		t.selAnchor = textPos{t.cursorRow, t.cursorCol}
+		t.hasSel = true
+	}
+	handled := t.applyKey(scancode)
+	if move {
+		t.hasSel = shift && t.hasSel && t.selAnchor != (textPos{t.cursorRow, t.cursorCol})
+	}
+	return handled
+}
+
+// applyKey performs the caret movement or edit for scancode, ignoring
+// selection state (handleKey resolves the selection first).
+func (t *TextArea) applyKey(scancode sdl.Scancode) bool {
 	line := t.Lines[t.cursorRow]
+
+	// Intra-line editing (Home/End/Left/Right/Backspace/Delete) is shared
+	// with TextInput; only line-crossing cases fall through to the switch.
+	if newLine, newCol, handled := editLineKey(scancode, line, t.cursorCol); handled {
+		t.Lines[t.cursorRow] = newLine
+		t.cursorCol = newCol
+		return true
+	}
 
 	switch scancode {
 	case sdl.ScancodeBackspace:
-		if t.cursorCol > 0 {
-			t.Lines[t.cursorRow] = line[:t.cursorCol-1] + line[t.cursorCol:]
-			t.cursorCol--
-		} else if t.cursorRow > 0 {
+		// cursorCol == 0 here: join with the previous line.
+		if t.cursorRow > 0 {
 			prevLen := len(t.Lines[t.cursorRow-1])
 			t.Lines[t.cursorRow-1] += line
 			t.Lines = append(t.Lines[:t.cursorRow], t.Lines[t.cursorRow+1:]...)
 			t.cursorRow--
 			t.cursorCol = prevLen
+		}
+	case sdl.ScancodeDelete:
+		// cursor at end of line here: join with the next line.
+		if t.cursorRow < len(t.Lines)-1 {
+			t.Lines[t.cursorRow] += t.Lines[t.cursorRow+1]
+			t.Lines = append(t.Lines[:t.cursorRow+1], t.Lines[t.cursorRow+2:]...)
 		}
 	case sdl.ScancodeReturn:
 		before, after := line[:t.cursorCol], line[t.cursorCol:]
@@ -217,16 +309,14 @@ func (t *TextArea) handleKey(scancode sdl.Scancode) bool {
 		t.cursorRow++
 		t.cursorCol = 0
 	case sdl.ScancodeLeft:
-		if t.cursorCol > 0 {
-			t.cursorCol--
-		} else if t.cursorRow > 0 {
+		// cursorCol == 0 here: hop to the end of the previous line.
+		if t.cursorRow > 0 {
 			t.cursorRow--
 			t.cursorCol = len(t.Lines[t.cursorRow])
 		}
 	case sdl.ScancodeRight:
-		if t.cursorCol < len(line) {
-			t.cursorCol++
-		} else if t.cursorRow < len(t.Lines)-1 {
+		// cursor at end of line here: hop to the start of the next line.
+		if t.cursorRow < len(t.Lines)-1 {
 			t.cursorRow++
 			t.cursorCol = 0
 		}
@@ -240,10 +330,6 @@ func (t *TextArea) handleKey(scancode sdl.Scancode) bool {
 			t.cursorRow++
 			t.cursorCol = min(t.cursorCol, len(t.Lines[t.cursorRow]))
 		}
-	case sdl.ScancodeHome:
-		t.cursorCol = 0
-	case sdl.ScancodeEnd:
-		t.cursorCol = len(line)
 	default:
 		return false
 	}
@@ -267,10 +353,111 @@ func maxFloat(a, b float32) float32 {
 	return b
 }
 
+// insertAtCursor inserts s at the cursor. Newlines in s (any of \n, \r\n,
+// \r) split into real lines, so pasted multi-line text lands as separate
+// Lines entries rather than embedded control characters.
 func (t *TextArea) insertAtCursor(s string) {
+	t.deleteSelection()
 	line := t.Lines[t.cursorRow]
-	t.Lines[t.cursorRow] = line[:t.cursorCol] + s + line[t.cursorCol:]
-	t.cursorCol += len(s)
+	before, after := line[:t.cursorCol], line[t.cursorCol:]
+
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	parts := strings.Split(s, "\n")
+
+	if len(parts) == 1 {
+		t.Lines[t.cursorRow] = before + s + after
+		t.cursorCol += len(s)
+		return
+	}
+
+	t.Lines[t.cursorRow] = before + parts[0]
+	last := parts[len(parts)-1]
+	inserted := append(append([]string{}, parts[1:len(parts)-1]...), last+after)
+	t.Lines = append(t.Lines[:t.cursorRow+1], append(inserted, t.Lines[t.cursorRow+1:]...)...)
+	t.cursorRow += len(parts) - 1
+	t.cursorCol = len(last)
+}
+
+// deleteSelection removes the selected range from Lines and collapses the
+// caret to its start. Reports whether there was a selection to delete.
+func (t *TextArea) deleteSelection() bool {
+	if !t.hasSel {
+		return false
+	}
+	t.hasSel = false
+	a, b := t.clampPos(t.selAnchor), t.clampPos(textPos{t.cursorRow, t.cursorCol})
+	lines, pos := deleteRangeLines(t.Lines, a, b)
+	t.Lines = lines
+	t.cursorRow, t.cursorCol = pos.row, pos.col
+	return true
+}
+
+// clampPos snaps p into the current Lines, guarding against callers that
+// replaced Lines wholesale since the position was recorded.
+func (t *TextArea) clampPos(p textPos) textPos {
+	if p.row < 0 {
+		return textPos{0, 0}
+	}
+	if p.row >= len(t.Lines) {
+		last := len(t.Lines) - 1
+		return textPos{last, len(t.Lines[last])}
+	}
+	if p.col < 0 {
+		p.col = 0
+	}
+	if p.col > len(t.Lines[p.row]) {
+		p.col = len(t.Lines[p.row])
+	}
+	return p
+}
+
+// posForPoint maps a pixel position to the (row, byte offset) of the nearest
+// caret slot, accounting for scroll offsets and, in WordWrap mode, the same
+// wrapping Render uses.
+func (t *TextArea) posForPoint(mx, my float32) textPos {
+	originX := t.Bounds.X + textAreaPadding - t.scrollX
+	originY := t.Bounds.Y + textAreaPadding - t.scrollY
+	visual := int((my - originY) / t.lineSkip)
+	if my < originY {
+		visual = -1
+	}
+	if visual < 0 {
+		return textPos{0, byteOffsetForX(firstLine(t.Lines), mx-originX, t.textWidth)}
+	}
+
+	if !t.WordWrap {
+		row := visual
+		if row >= len(t.Lines) {
+			row = len(t.Lines) - 1
+		}
+		return textPos{row, byteOffsetForX(t.Lines[row], mx-originX, t.textWidth)}
+	}
+
+	idx := 0
+	for row, line := range t.Lines {
+		wrapped := textutil.WrapText(line, t.font, t.Bounds.W-2*textAreaPadding)
+		if len(wrapped) == 0 {
+			wrapped = []string{""}
+		}
+		consumed := 0
+		for _, sub := range wrapped {
+			if idx == visual {
+				return textPos{row, consumed + byteOffsetForX(sub, mx-originX, t.textWidth)}
+			}
+			consumed += len(sub)
+			idx++
+		}
+	}
+	last := len(t.Lines) - 1
+	return textPos{last, len(t.Lines[last])}
+}
+
+func firstLine(lines []string) string {
+	if len(lines) == 0 {
+		return ""
+	}
+	return lines[0]
 }
 
 func (t *TextArea) GetBounds() sdl.FRect {
@@ -282,15 +469,7 @@ func (t *TextArea) SetBounds(bounds sdl.FRect) {
 }
 
 func (t *TextArea) textWidth(s string) float32 {
-	if s == "" {
-		return 0
-	}
-	surface := ttf.RenderTextBlended(t.font, s, 0, sdl.Color{R: 0, G: 0, B: 0, A: 255})
-	if surface == nil {
-		return 0
-	}
-	defer sdl.DestroySurface(surface)
-	return float32(surface.W)
+	return textPixelWidth(t.font, s)
 }
 
 // recomputeMetrics recalculates contentHeight and maxLineWidth from the
@@ -338,24 +517,22 @@ func maxInt(a, b int) int {
 }
 
 func (t *TextArea) drawLine(renderer *sdl.Renderer, text string, x, y float32) {
-	if text == "" {
-		return
-	}
-	surface := ttf.RenderTextBlended(t.font, text, 0, sdl.Color{R: 20, G: 20, B: 20, A: 255})
-	if surface == nil {
-		return
-	}
-	texture := sdl.CreateTextureFromSurface(renderer, surface)
-	sdl.DestroySurface(surface)
-	if texture == nil {
-		return
-	}
-	defer sdl.DestroyTexture(texture)
+	drawText(renderer, t.font, text, sdl.Color{R: 20, G: 20, B: 20, A: 255}, x, y)
+}
 
-	var w, h float32
-	sdl.GetTextureSize(texture, &w, &h)
-	rect := sdl.FRect{X: x, Y: y, W: w, H: h}
-	sdl.RenderTexture(renderer, texture, nil, &rect)
+// drawHighlight fills one visual line's selection background, drawn before
+// the text so the glyphs stay legible on top.
+func (t *TextArea) drawHighlight(renderer *sdl.Renderer, x, y, w float32) {
+	rect := sdl.FRect{X: x, Y: y, W: w, H: t.lineSkip}
+	sdl.SetRenderDrawColor(renderer, 179, 212, 255, sdl.AlphaOpaque)
+	sdl.RenderFillRect(renderer, &rect)
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (t *TextArea) Render(renderer *sdl.Renderer) {
@@ -389,7 +566,16 @@ func (t *TextArea) Render(renderer *sdl.Renderer) {
 	cursorFound := false
 	y := originY
 
+	var selLo, selHi textPos
+	if t.hasSel {
+		selLo, selHi = orderPos(t.clampPos(t.selAnchor), t.clampPos(textPos{t.cursorRow, t.cursorCol}))
+	}
+
 	for row, line := range t.Lines {
+		selA, selB, rowSelected := 0, 0, false
+		if t.hasSel {
+			selA, selB, rowSelected = lineSelSpan(row, len(line), selLo, selHi)
+		}
 		if t.WordWrap {
 			wrapped := textutil.WrapText(line, t.font, t.Bounds.W-2*textAreaPadding)
 			if len(wrapped) == 0 {
@@ -397,6 +583,12 @@ func (t *TextArea) Render(renderer *sdl.Renderer) {
 			}
 			consumed := 0
 			for _, sub := range wrapped {
+				if rowSelected {
+					a, b := maxInt(selA, consumed), minInt(selB, consumed+len(sub))
+					if a < b {
+						t.drawHighlight(renderer, originX+t.textWidth(sub[:a-consumed]), y, t.textWidth(sub[a-consumed:b-consumed]))
+					}
+				}
 				t.drawLine(renderer, sub, originX, y)
 				if row == t.cursorRow && !cursorFound && t.cursorCol >= consumed && t.cursorCol <= consumed+len(sub) {
 					cursorX = originX + t.textWidth(sub[:t.cursorCol-consumed])
@@ -407,6 +599,9 @@ func (t *TextArea) Render(renderer *sdl.Renderer) {
 				y += t.lineSkip
 			}
 		} else {
+			if rowSelected {
+				t.drawHighlight(renderer, originX+t.textWidth(line[:selA]), y, t.textWidth(line[selA:selB]))
+			}
 			t.drawLine(renderer, line, originX, y)
 			if row == t.cursorRow {
 				cursorX = originX + t.textWidth(line[:t.cursorCol])

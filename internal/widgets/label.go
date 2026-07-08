@@ -34,12 +34,7 @@ func (l *Label) UpdateText(text string) {
 	}
 
 	// For now, render as single line - multiline support would require more complex text layout
-	surface := ttf.RenderTextBlended(l.font, text, 0, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if surface != nil {
-		l.Texture = sdl.CreateTextureFromSurface(l.renderer, surface)
-		sdl.GetTextureSize(l.Texture, &l.Bounds.W, &l.Bounds.H)
-		sdl.DestroySurface(surface)
-	}
+	l.Texture, l.Bounds.W, l.Bounds.H = makeTextTexture(l.renderer, l.font, text, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	l.Text = text
 }
 

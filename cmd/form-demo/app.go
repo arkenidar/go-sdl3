@@ -84,6 +84,9 @@ func (app *App) handleEvents() bool {
 		if event.Type() == sdl.EventMouseButtonDown || event.Type() == sdl.EventMouseButtonUp {
 			mx = float32(event.Button().X)
 			my = float32(event.Button().Y)
+		} else if event.Type() == sdl.EventMouseMotion {
+			mx = float32(event.Motion().X)
+			my = float32(event.Motion().Y)
 		}
 
 		switch event.Type() {
@@ -93,7 +96,7 @@ func (app *App) handleEvents() bool {
 			if event.Key().Scancode == sdl.ScancodeEscape {
 				return false
 			}
-		case sdl.EventMouseButtonDown, sdl.EventMouseButtonUp:
+		case sdl.EventMouseButtonDown, sdl.EventMouseButtonUp, sdl.EventMouseMotion:
 			app.uiLayout.Update(event, mx, my)
 		}
 	}

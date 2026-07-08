@@ -21,19 +21,10 @@ const checkboxLabelGap = 8
 // NewCheckbox creates a labeled Checkbox at (x, y) with the given initial
 // checked state; onToggle (optional) fires with the new state on click.
 func NewCheckbox(x, y float32, text string, checked bool, font *ttf.Font, renderer *sdl.Renderer, onToggle func(checked bool)) *Checkbox {
-	surface := ttf.RenderTextBlended(font, text, 0, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if surface == nil {
-		panic(sdl.GetError())
-	}
-	defer sdl.DestroySurface(surface)
-
-	texture := sdl.CreateTextureFromSurface(renderer, surface)
+	texture, textW, textH := makeTextTexture(renderer, font, text, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if texture == nil {
 		panic(sdl.GetError())
 	}
-
-	var textW, textH float32
-	sdl.GetTextureSize(texture, &textW, &textH)
 
 	boxSize := textH
 	w := boxSize + checkboxLabelGap + textW

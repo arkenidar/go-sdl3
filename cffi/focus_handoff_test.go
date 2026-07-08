@@ -100,8 +100,10 @@ func TestFocusHandoffUnconditionalDispatch(t *testing.T) {
 			focusedTextInput(), focusedTextArea())
 	}
 
-	dispatch(guiEventMouseDown, synthMouseDown(), 50, 36) // click TextInput again
-	dispatch(guiEventTextInput, synthTextInputEvent("three"), 50, 36)
+	// Click TextInput again, to the right of its text: clicks now place the
+	// caret at the pointer, so aim past "one" to land at the end of the value.
+	dispatch(guiEventMouseDown, synthMouseDown(), 210, 36)
+	dispatch(guiEventTextInput, synthTextInputEvent("three"), 210, 36)
 	if !focusedTextInput() || focusedTextArea() {
 		t.Fatalf("after re-focusing TextInput: textinput.Focused=%v textarea.Focused=%v, want true/false",
 			focusedTextInput(), focusedTextArea())
