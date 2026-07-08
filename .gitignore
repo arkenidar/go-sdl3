@@ -10,3 +10,4 @@ cffi/libgui.dll
 
 # Python bytecode cache from running examples/python-use/demo.py.
 __pycache__/
+python/examples/crud_demo_data.json
