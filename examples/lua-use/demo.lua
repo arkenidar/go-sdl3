@@ -13,6 +13,18 @@
 
 local ffi = require("ffi")
 
+-- LuaJIT's FFI callback trampoline can only be entered from the
+-- interpreter, not from JIT-compiled machine code. If the main loop below
+-- gets hot enough to be traced/compiled before the button is clicked, the
+-- synchronous C-into-Lua callback invocation aborts the whole process with
+-- "PANIC: unprotected error in call to Lua API (bad callback)" -- a panic
+-- pcall cannot catch, since it happens in the trampoline itself. This is
+-- intermittent because it depends on real-world timing (how many frames
+-- elapse, i.e. how hot the loop gets, before a click happens). Since this
+-- demo is capped at ~60fps by gui_delay_ms(16) anyway, JIT compilation buys
+-- nothing here, so just turn it off.
+jit.off()
+
 -- Resolve paths relative to this script's own location, not the caller's
 -- cwd, so `luajit examples/lua-use/demo.lua` works from the repo root too.
 local scriptDir = arg[0]:match("(.*/)") or "./"
