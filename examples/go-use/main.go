@@ -9,6 +9,8 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
+	"runtime"
 
 	"arkenidar.com/purego-sdl3/internal/sdlapp"
 	"arkenidar.com/purego-sdl3/internal/widgets"
@@ -16,11 +18,16 @@ import (
 )
 
 func main() {
+	// Resolve font path relative to this source file, so the example
+	// works regardless of which directory the user runs it from.
+	_, filename, _, _ := runtime.Caller(0)
+	fontPath := filepath.Join(filepath.Dir(filename), "..", "..", "assets", "OpenDyslexic-Regular.ttf")
+
 	app, cleanup, err := sdlapp.Bootstrap(sdlapp.Config{
 		Title:    "Go native FFI-parity demo",
 		Width:    420,
 		Height:   460,
-		FontPath: "../../assets/OpenDyslexic-Regular.ttf",
+		FontPath: fontPath,
 		FontSize: 20,
 	})
 	if err != nil {
