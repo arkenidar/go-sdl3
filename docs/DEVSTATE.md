@@ -11,6 +11,17 @@ to later. Last updated: 2026-07-08.
 > copies the string into Go memory and repoints the stored event, and the
 > C-visible `GuiEvent.text` truncation is rune-safe (`cStringLen`).
 > Remember to rebuild `cffi/libgui.so` after pulling.
+>
+> Second follow-up: even after the retainText fix, typed accents arrived
+> double-encoded ("è" → "Ã¨") in the scripted demos — but only there.
+> Root cause found empirically (xdotool-driven typing, screenshots): SDL's
+> X11 text input double-encodes UTF-8 when the host runtime set a UTF-8
+> locale (CPython does at startup; pure-Go hosts stay in the "C" locale,
+> which is why native apps were always clean; confirmed by running demo.py
+> under LC_ALL=C — clean). `fixDoubleUTF8` (cffi/events.go) now collapses
+> that exact pattern at pump time, fixing all lockstep FFI demos in the
+> shared layer with no per-demo changes. Verified end-to-end: typed
+> "èè" round-trips exactly through demo.py.
 
 ## Committed baseline (branch `main`, up to `c0992d4`)
 

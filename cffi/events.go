@@ -15,6 +15,7 @@ import "C"
 
 import (
 	"encoding/binary"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/jupiterrider/purego-sdl3/sdl"
@@ -111,7 +112,7 @@ func gui_pump_events(outCount *int32) int32 {
 			}
 			if kind == guiEventTextInput {
 				textEv := ev.Text()
-				qe.text = textEv.Text()
+				qe.text = fixDoubleUTF8(textEv.Text())
 				qe.retainText()
 			}
 			if kind == guiEventMouseMotion {
@@ -155,6 +156,33 @@ func gui_poll_event(out *C.GuiEvent) int32 {
 		}
 		return nil
 	})
+}
+
+// fixDoubleUTF8 undoes text that arrived double-encoded: valid UTF-8 whose
+// bytes were each re-encoded as if they were Latin-1 characters (e.g. typed
+// "è" delivered as "Ã¨"). This happens in SDL's X11 text input when the
+// host runtime has set a UTF-8 locale — CPython calls setlocale(LC_CTYPE)
+// at startup, which flips X11 input into that path, while pure-Go hosts
+// stay in the "C" locale and receive correct UTF-8 (verified empirically:
+// the same libgui build garbles under LANG=en_US.UTF-8 and is clean under
+// LC_ALL=C). Collapsing is attempted only when every rune fits in Latin-1
+// AND the collapsed bytes form valid UTF-8 that is strictly shorter, which
+// plain ASCII and genuine single-accent input never satisfy.
+func fixDoubleUTF8(s string) string {
+	if s == "" {
+		return s
+	}
+	b := make([]byte, 0, len(s))
+	for _, r := range s {
+		if r > 0xFF {
+			return s // genuine non-Latin-1 rune: cannot be double-encoded
+		}
+		b = append(b, byte(r))
+	}
+	if len(b) == len(s) || !utf8.Valid(b) {
+		return s
+	}
+	return string(b)
 }
 
 func writeCString(dst []C.char, s string) {

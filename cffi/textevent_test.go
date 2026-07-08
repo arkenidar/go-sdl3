@@ -51,6 +51,29 @@ func TestTextEventSurvivesBufferReuse(t *testing.T) {
 	}
 }
 
+func TestFixDoubleUTF8(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"ascii untouched", "a", "a"},
+		{"genuine single accent untouched", "è", "è"},
+		{"double-encoded e-grave", "Ã¨", "è"},
+		{"double-encoded euro", "â¬", "€"},
+		{"genuine non-latin1 untouched", "€", "€"},
+		{"lone latin1 fragment untouched", "Ã", "Ã"},
+		{"empty", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fixDoubleUTF8(tt.in); got != tt.want {
+				t.Errorf("fixDoubleUTF8(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCStringLenRuneBoundary(t *testing.T) {
 	tests := []struct {
 		name string
