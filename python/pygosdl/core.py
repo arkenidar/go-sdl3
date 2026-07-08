@@ -57,6 +57,14 @@ class Window:
         check(_n.gui.gui_window_get_renderer(handle, ct.byref(renderer_handle)), "gui_window_get_renderer")
         self.renderer = Renderer(renderer_handle.value)
 
+    def get_size(self):
+        """Current window size in screen coordinates -- reflects live
+        resizes (e.g. the user dragging an edge), unlike self.width/height
+        which are just what was passed to create_window."""
+        w, h = ct.c_int32(), ct.c_int32()
+        check(_n.gui.gui_window_get_size(self.handle, ct.byref(w), ct.byref(h)), "gui_window_get_size")
+        return (w.value, h.value)
+
     def load_font(self, path, ptsize: float = 20.0) -> Font:
         handle = ct.c_uint64()
         check(_n.gui.gui_load_font(str(path).encode(), ptsize, ct.byref(handle)), "gui_load_font")

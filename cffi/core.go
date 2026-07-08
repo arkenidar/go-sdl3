@@ -108,6 +108,32 @@ func gui_window_get_renderer(window uint64, out *uint64) int32 {
 	})
 }
 
+// gui_window_get_size reports the window's current size in screen
+// coordinates -- unlike the size passed to gui_create_window, this reflects
+// live resizes (e.g. the user dragging an edge), since SDL updates the
+// window's actual size internally as those happen.
+//
+//export gui_window_get_size
+func gui_window_get_size(window uint64, outW, outH *int32) int32 {
+	return guard(func() error {
+		win, err := lookupWindow(window)
+		if err != nil {
+			return err
+		}
+		var w, h int32
+		if !sdl.GetWindowSize(win, &w, &h) {
+			return errors.New(sdl.GetError())
+		}
+		if outW != nil {
+			*outW = w
+		}
+		if outH != nil {
+			*outH = h
+		}
+		return nil
+	})
+}
+
 //export gui_load_font
 func gui_load_font(path *C.char, ptsize float32, out *uint64) int32 {
 	return guard(func() error {

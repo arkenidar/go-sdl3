@@ -103,6 +103,9 @@ gui.gui_create_window.restype = ct.c_int32
 gui.gui_window_get_renderer.argtypes = [ct.c_uint64, ct.POINTER(ct.c_uint64)]
 gui.gui_window_get_renderer.restype = ct.c_int32
 
+gui.gui_window_get_size.argtypes = [ct.c_uint64, ct.POINTER(ct.c_int32), ct.POINTER(ct.c_int32)]
+gui.gui_window_get_size.restype = ct.c_int32
+
 gui.gui_load_font.argtypes = [ct.c_char_p, ct.c_float, ct.POINTER(ct.c_uint64)]
 gui.gui_load_font.restype = ct.c_int32
 
