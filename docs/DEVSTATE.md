@@ -3,6 +3,15 @@
 Snapshot of where development stands, so work can be resumed and referred
 to later. Last updated: 2026-07-08.
 
+> Update note: the phase-1/2 text-editing work described below is now
+> committed (`809eb2b`, `5801fc1`). A follow-up fix landed for the FFI
+> demos: queued text-input events used to keep SDL's temporary `char*`
+> alive past its lifetime, garbling typed text (most visibly multibyte) in
+> the Lua/Python demos — `queuedEvent.retainText` (cffi/events.go) now
+> copies the string into Go memory and repoints the stored event, and the
+> C-visible `GuiEvent.text` truncation is rune-safe (`cStringLen`).
+> Remember to rebuild `cffi/libgui.so` after pulling.
+
 ## Committed baseline (branch `main`, up to `c0992d4`)
 
 - **Apps** (`cmd/`): blank-window, bouncing-balls, counter-demo, crud-app,

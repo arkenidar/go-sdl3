@@ -14,6 +14,9 @@ typedef struct {
 import "C"
 
 import (
+	"encoding/binary"
+	"unsafe"
+
 	"github.com/jupiterrider/purego-sdl3/sdl"
 )
 
@@ -37,6 +40,26 @@ type queuedEvent struct {
 	my    float32
 	wheel sdl.MouseWheelEvent
 	text  string
+	// textBuf owns the text-input string for the queued event's lifetime;
+	// see retainText.
+	textBuf []byte
+}
+
+// sdlTextInputEventTextOffset is where TextInputEvent's `text` pointer sits
+// inside the raw SDL event union: CommonEvent (16 bytes) + WindowID uint32
+// (4) + 4 bytes padding.
+const sdlTextInputEventTextOffset = 24
+
+// retainText copies a text-input event's string into Go-owned memory and
+// repoints the stored event's text pointer at that copy. SDL owns the
+// original buffer only temporarily (it is freed/reused by later PollEvent /
+// PumpEvents calls), and this queue dispatches events well after pumping —
+// without the copy, gui_widget_update would hand widgets an event whose
+// text pointer already dangles, garbling input (most visibly multibyte).
+func (qe *queuedEvent) retainText() {
+	qe.textBuf = append([]byte(qe.text), 0)
+	ptr := uint64(uintptr(unsafe.Pointer(&qe.textBuf[0])))
+	binary.LittleEndian.PutUint64(qe.ev[sdlTextInputEventTextOffset:sdlTextInputEventTextOffset+8], ptr)
 }
 
 var eventQueue []queuedEvent
@@ -89,6 +112,7 @@ func gui_pump_events(outCount *int32) int32 {
 			if kind == guiEventTextInput {
 				textEv := ev.Text()
 				qe.text = textEv.Text()
+				qe.retainText()
 			}
 			if kind == guiEventMouseMotion {
 				motion := ev.Motion()
@@ -135,12 +159,23 @@ func gui_poll_event(out *C.GuiEvent) int32 {
 
 func writeCString(dst []C.char, s string) {
 	b := []byte(s)
-	n := len(dst) - 1
-	if len(b) < n {
-		n = len(b)
-	}
+	n := cStringLen(b, len(dst)-1)
 	for i := 0; i < n; i++ {
 		dst[i] = C.char(b[i])
 	}
 	dst[n] = 0
+}
+
+// cStringLen returns how many bytes of b fit in a C buffer holding max
+// bytes plus a NUL. When truncating, it backs up to a rune boundary so a
+// multibyte UTF-8 sequence is never split mid-rune.
+func cStringLen(b []byte, max int) int {
+	if len(b) <= max {
+		return len(b)
+	}
+	n := max
+	for n > 0 && b[n]&0xC0 == 0x80 {
+		n--
+	}
+	return n
 }
