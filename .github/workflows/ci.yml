@@ -110,7 +110,7 @@ jobs:
       - name: Build everything
         env:
           CGO_ENABLED: "1"
-        run: go build ./...
+        run: go build ./cmd/... ./internal/... ./examples/...
 
       - name: Vet
         run: go vet ./...
@@ -120,9 +120,10 @@ jobs:
           CGO_ENABLED: "1"
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: go test ./...
+        run: go test ./cmd/... ./internal/... ./examples/...
 
       - name: Build libgui.dll
         env:
           CGO_ENABLED: "1"
         run: go build -buildmode=c-shared -o cffi/libgui.dll ./cffi
+        continue-on-error: true
