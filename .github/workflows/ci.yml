@@ -122,9 +122,13 @@ jobs:
           SDL_AUDIODRIVER: dummy
           PATH: "C:\\msys64\\mingw64\\bin;${{ env.PATH }}"
         run: |
-          # Copy SDL3 DLLs to current directory so Go can find them at init time
-          Copy-Item -Path "C:\msys64\mingw64\bin\SDL3.dll" -Destination "." -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path "C:\msys64\mingw64\bin\SDL3_ttf.dll" -Destination "." -Force -ErrorAction SilentlyContinue
+          # go test runs each package's test binary with its own package
+          # directory as cwd (not the repo root), so copying next to "."
+          # only helps a test invoked from here. System32 is in every
+          # process's default DLL search path regardless of cwd, so copy
+          # there instead to cover every package uniformly.
+          Copy-Item -Path "C:\msys64\mingw64\bin\SDL3.dll" -Destination "C:\Windows\System32" -Force
+          Copy-Item -Path "C:\msys64\mingw64\bin\SDL3_ttf.dll" -Destination "C:\Windows\System32" -Force
           go test ./cmd/... ./internal/... ./examples/...
 
       - name: Build libgui.dll
