@@ -87,7 +87,11 @@ jobs:
         with:
           go-version: "1.24"
 
+      # setup-msys2 installs a fresh MSYS2 under the runner temp dir (NOT
+      # the C:\msys64 of a local install), so every path into it must go
+      # through the msys2-location output below.
       - uses: msys2/setup-msys2@v2
+        id: msys2
         with:
           msystem: MINGW64
           update: true
@@ -100,7 +104,7 @@ jobs:
       # msys2 {0}`); everything else in this job runs in the default pwsh,
       # so gcc.exe needs to be added to the ordinary Windows PATH here.
       - name: Add MinGW64 toolchain to PATH
-        run: echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        run: echo "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Verify toolchain
         run: |
@@ -120,15 +124,14 @@ jobs:
           CGO_ENABLED: "1"
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-          PATH: "C:\\msys64\\mingw64\\bin;${{ env.PATH }}"
         run: |
           # go test runs each package's test binary with its own package
           # directory as cwd (not the repo root), so copying next to "."
           # only helps a test invoked from here. System32 is in every
           # process's default DLL search path regardless of cwd, so copy
           # there instead to cover every package uniformly.
-          Copy-Item -Path "C:\msys64\mingw64\bin\SDL3.dll" -Destination "C:\Windows\System32" -Force
-          Copy-Item -Path "C:\msys64\mingw64\bin\SDL3_ttf.dll" -Destination "C:\Windows\System32" -Force
+          Copy-Item -Path "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\SDL3.dll" -Destination "C:\Windows\System32" -Force
+          Copy-Item -Path "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\SDL3_ttf.dll" -Destination "C:\Windows\System32" -Force
           go test ./cmd/... ./internal/... ./examples/...
 
       - name: Build libgui.dll
