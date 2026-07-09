@@ -120,8 +120,11 @@ jobs:
           CGO_ENABLED: "1"
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: go test ./cmd/... ./internal/... ./examples/...
-        continue-on-error: true
+        run: |
+          # Make SDL3.dll available to Windows Go process
+          copy "C:\msys64\mingw64\bin\SDL3.dll" "C:\Windows\System32\SDL3.dll" -Force -ErrorAction SilentlyContinue
+          copy "C:\msys64\mingw64\bin\SDL3_ttf.dll" "C:\Windows\System32\SDL3_ttf.dll" -Force -ErrorAction SilentlyContinue
+          go test ./cmd/... ./internal/... ./examples/...
 
       - name: Build libgui.dll
         env:
