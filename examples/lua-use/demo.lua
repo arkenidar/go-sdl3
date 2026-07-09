@@ -84,7 +84,10 @@ int32_t gui_widget_set_bounds(uint64_t handle, GuiRect rect);
 int32_t gui_widget_destroy(uint64_t handle);
 ]]
 
-local gui = ffi.load(scriptDir .. "../../cffi/libgui.so")
+-- cffi/build.sh names the library per-OS: .dll on Windows, .dylib on
+-- macOS, .so elsewhere.
+local libExt = ({ Windows = "dll", OSX = "dylib" })[ffi.os] or "so"
+local gui = ffi.load(scriptDir .. "../../cffi/libgui." .. libExt)
 
 local GUI_EVENT_QUIT = 1
 

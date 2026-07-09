@@ -39,7 +39,10 @@ class GuiRect(ct.Structure):
 
 GUI_EVENT_QUIT = 1
 
-gui = ct.CDLL(os.path.join(SCRIPT_DIR, "..", "..", "cffi", "libgui.so"))
+# cffi/build.sh names the library per-OS: .dll on Windows, .dylib on
+# macOS, .so elsewhere.
+_LIB_EXT = {"win32": "dll", "darwin": "dylib"}.get(sys.platform, "so")
+gui = ct.CDLL(os.path.join(SCRIPT_DIR, "..", "..", "cffi", f"libgui.{_LIB_EXT}"))
 
 gui.gui_abi_version.argtypes = []
 gui.gui_abi_version.restype = ct.c_int32

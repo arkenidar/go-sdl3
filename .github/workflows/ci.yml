@@ -75,7 +75,6 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    # NOTE: unverified against a real run on actual GitHub infrastructure.
     steps:
       - uses: actions/checkout@v4
 
@@ -99,6 +98,8 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-sdl3
             mingw-w64-x86_64-sdl3-ttf
+            mingw-w64-x86_64-luajit
+            mingw-w64-x86_64-python
 
       # msys2/setup-msys2 steps normally run inside its own bash (`shell:
       # msys2 {0}`); everything else in this job runs in the default pwsh,
@@ -138,4 +139,35 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: go build -buildmode=c-shared -o cffi/libgui.dll ./cffi
-        continue-on-error: true
+
+      # Same rationale as the Linux smoke tests above: the demos loop until
+      # a quit event that never arrives under the dummy driver, so `timeout`
+      # killing them (exit 124) is the passing outcome. These steps run in
+      # the msys2 bash shell for coreutils `timeout`; luajit and python come
+      # from the pacman install list above, so /mingw64/bin (on the msys2
+      # shell's PATH automatically) provides them.
+      - name: Smoke-test lua-use demo
+        shell: msys2 {0}
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: timeout 3 luajit examples/lua-use/demo.lua || [ $? -eq 124 ]
+
+      - name: Smoke-test python-use demo
+        shell: msys2 {0}
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: timeout 3 python examples/python-use/demo.py || [ $? -eq 124 ]
+
+      # go isn't on the msys2 shell's PATH (it comes from setup-go on the
+      # Windows side), so build in pwsh and only run under msys2's timeout.
+      - name: Build go-use demo
+        run: go build -o go-use.exe ./examples/go-use
+
+      - name: Smoke-test go-use demo
+        shell: msys2 {0}
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: timeout 3 ./go-use.exe || [ $? -eq 124 ]

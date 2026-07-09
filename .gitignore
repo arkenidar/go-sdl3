@@ -8,6 +8,9 @@ cffi/libgui.h
 cffi/libgui.dylib
 cffi/libgui.dll
 
+# Smoke-test binary built into the repo root by the Windows CI job.
+go-use.exe
+
 # Python bytecode cache from running examples/python-use/demo.py.
 __pycache__/
 python/examples/crud_demo_data.json
