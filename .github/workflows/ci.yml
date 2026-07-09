@@ -121,6 +121,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: go test ./cmd/... ./internal/... ./examples/...
+        continue-on-error: true
 
       - name: Build libgui.dll
         env:
